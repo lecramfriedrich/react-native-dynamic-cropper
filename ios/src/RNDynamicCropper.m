@@ -22,39 +22,6 @@
 @property(nonatomic, strong) RCTPromiseRejectBlock reject;
 @end
 
-// I promise I will cut this out and put it in a different file when I add android.
-
-@implementation GlobalVars
-@synthesize filePath;
-static GlobalVars *sharedGlobalVars = nil;
-
-+ (GlobalVars*)sharedGlobalVars {
-    if (sharedGlobalVars == nil) {
-        sharedGlobalVars = [[super allocWithZone:NULL] init];
-        
-        // initialize your variables here
-        sharedGlobalVars.filePath = @"temp.jpg";
-    }
-    return sharedGlobalVars;
-}
-
-+ (id)allocWithZone:(NSZone *)zone {
-    @synchronized(self)
-    {
-        if (sharedGlobalVars == nil)
-        {
-            sharedGlobalVars = [super allocWithZone:zone];
-            return sharedGlobalVars;
-        }
-    }
-    return nil;
-}
-
-- (id)copyWithZone:(NSZone *)zone {
-    return self;
-}
-@end
-
 @implementation RNDynamicCropper
 
 RCT_EXPORT_MODULE();
@@ -71,27 +38,25 @@ RCT_EXPORT_METHOD(cropImage:(NSString *)path details:(NSDictionary *)details res
     // This code pretty much never chages. Take the path command that we passed from JS.
     // Read that data into an image. Open the image in the cropper.
     // Profit.
-      UIImage *image = [UIImage imageWithContentsOfFile:path];
-      NSLog(@"%@", image);
-      TOCropViewController *cropViewController = [[TOCropViewController alloc] initWithImage:image];
-      // Locale set here
-      if([title length] != 0){
-          cropViewController.title = title;
-      }
-      if([doneButtonTitle length] != 0){
-          cropViewController.doneButtonTitle = doneButtonTitle;
-      }
-      if([cancelButtonTitle length] != 0){
-          cropViewController.cancelButtonTitle = cancelButtonTitle;
-      }
-      if([passedInFilePath length] != 0){
-          [GlobalVars sharedGlobalVars].filePath = passedInFilePath;
-      } else {
-           [GlobalVars sharedGlobalVars].filePath = @"temp.jpg";
-      }
+    UIImage *image = [UIImage imageWithContentsOfFile:path];
+    NSLog(@"%@", image);
+    TOCropViewController *cropViewController = [[TOCropViewController alloc] initWithImage:image];
+    // Locale set here
+    if([title length] != 0){
+        cropViewController.title = title;
+    }
+    if([doneButtonTitle length] != 0){
+        cropViewController.doneButtonTitle = doneButtonTitle;
+    }
+    if([cancelButtonTitle length] != 0){
+        cropViewController.cancelButtonTitle = cancelButtonTitle;
+    }
     cropViewController.delegate = self;
     UINavigationController* contactNavigator = [[UINavigationController alloc] initWithRootViewController:cropViewController];
-     [[self getRootVC] presentViewController:contactNavigator animated:NO completion:nil];
+    if (@available(iOS 13, *)) {
+      contactNavigator.modalPresentationStyle = UIModalPresentationFullScreen;
+    }
+    [[self getRootVC] presentViewController:contactNavigator animated:NO completion:nil];
   });
 }
 
@@ -110,14 +75,18 @@ RCT_EXPORT_METHOD(cropImage:(NSString *)path details:(NSDictionary *)details res
 {
   // Just a way to get file paths
   NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
-  NSString *filePath = [[paths objectAtIndex:0] stringByAppendingPathComponent:[GlobalVars sharedGlobalVars].filePath];
+  NSString *filePath = [[paths objectAtIndex:0] stringByAppendingPathComponent:@"temp.jpg"];
 
   // Write our image data to the above specified path (wherever + temp)
   [UIImageJPEGRepresentation(image, 1.0) writeToFile:filePath atomically:YES];
   // Close the UIView
   [cropViewController dismissViewControllerAnimated:YES completion:nil];
   // Return the path so it can be manipulated elsewhere.
-  self.resolver(filePath);
+  self.resolver(@{
+    @"path": filePath,
+    @"width": @(cropRect.size.width),
+    @"height": @(cropRect.size.height)
+  });
 }
 
 - (void)cropViewController:(TOCropViewController *)cropViewController didFinishCancelled:(BOOL)cancelled
