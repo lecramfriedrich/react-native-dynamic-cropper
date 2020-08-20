@@ -22,6 +22,37 @@
 @property(nonatomic, strong) RCTPromiseRejectBlock reject;
 @end
 
+@implementation GlobalVars
+@synthesize filePath;
+static GlobalVars *sharedGlobalVars = nil;
+
++ (GlobalVars*)sharedGlobalVars {
+    if (sharedGlobalVars == nil) {
+        sharedGlobalVars = [[super allocWithZone:NULL] init];
+        
+        // initialize your variables here
+        sharedGlobalVars.filePath = @"temp.jpg";
+    }
+    return sharedGlobalVars;
+}
+
++ (id)allocWithZone:(NSZone *)zone {
+    @synchronized(self)
+    {
+        if (sharedGlobalVars == nil)
+        {
+            sharedGlobalVars = [super allocWithZone:zone];
+            return sharedGlobalVars;
+        }
+    }
+    return nil;
+}
+
+- (id)copyWithZone:(NSZone *)zone {
+    return self;
+}
+@end
+
 @implementation RNDynamicCropper
 
 RCT_EXPORT_MODULE();
@@ -50,6 +81,11 @@ RCT_EXPORT_METHOD(cropImage:(NSString *)path details:(NSDictionary *)details res
     }
     if([cancelButtonTitle length] != 0){
         cropViewController.cancelButtonTitle = cancelButtonTitle;
+    }
+    if([passedInFilePath length] != 0){
+        [GlobalVars sharedGlobalVars].filePath = passedInFilePath;
+    } else {
+        [GlobalVars sharedGlobalVars].filePath = @"temp.jpg";
     }
     cropViewController.delegate = self;
     UINavigationController* contactNavigator = [[UINavigationController alloc] initWithRootViewController:cropViewController];
